@@ -1,92 +1,239 @@
 import streamlit as st
-import pyodbc
-from datetime import date
-import os
 
-st.set_page_config(page_title="Movitech", layout="centered")
+# =========================
+# 🔐 LOGIN MULTIUSUÁRIO
+# =========================
+usuarios = {
+    "admin": "1234",
+    "emerson": "movitech",
+    "helton": "1234",
+    "marcelo": "1234",
+    "daniel": "1234",
+    "rodrigo": "1234"
+}
 
-# LOGO
-if os.path.exists("logo.png"):
-    st.image("logo.png", width=220)
+if "logado" not in st.session_state:
+    st.session_state.logado = False
 
-# CONEXÃO
-def conectar():
-    return pyodbc.connect(
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
-        f"SERVER={st.secrets['DB_SERVER']};"
-        f"DATABASE={st.secrets['DB_NAME']};"
-        f"UID={st.secrets['DB_USER']};"
-        f"PWD={st.secrets['DB_PASSWORD']};"
-        "Encrypt=yes;"
-        "TrustServerCertificate=no;"
-        "Connection Timeout=30;"
-    )
-
-# LOGIN
-usuarios = ["emerson", "rodrigo", "admin"]
-
-if "usuario" not in st.session_state:
-    st.session_state.usuario = None
 
 def tela_login():
-    st.subheader("Login")
-    user = st.selectbox("Usuário", usuarios)
+    import os
+
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=220)
+
+    st.title("Login - MoviTech Robotics")
+
+    usuario = st.text_input("Usuário")
+    senha = st.text_input("Senha", type="password")
 
     if st.button("Entrar"):
-        st.session_state.usuario = user
+        if usuario in usuarios and usuarios[usuario] == senha:
+            st.session_state.logado = True
+            st.session_state.usuario = usuario
+            st.rerun()
+        else:
+            st.error("Usuário ou senha inválidos")
+
+
+# =========================
+# 🚀 APP PRINCIPAL
+# =========================
+def app():
+
+    import pandas as pd
+    import random
+    from datetime import datetime, timedelta
+    import pyodbc
+    import os
+
+    st.set_page_config(page_title="MoviTech Robotics", layout="wide")
+
+    # 🎨 ESTILO
+    st.markdown("""
+        <style>
+            .stApp {
+                background-color: #0D1B2A;
+                color: #FFFFFF;
+            }
+            h1, h2, h3 {
+                color: #FFFFFF;
+            }
+            .stButton>button {
+                background-color: #F77F00;
+                color: white;
+                height: 50px;
+                font-size: 18px;
+                border-radius: 12px;
+                border: none;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # 🔹 LOGO
+    if os.path.exists("logo.png"):
+        st.image("logo.png", width=220)
+
+    st.title("🤖 MoviTech Robotics")
+    st.caption("Sistema Inteligente de Produção Industrial")
+
+    st.success(f"👤 Usuário logado: {st.session_state.usuario}")
+
+    # =========================
+    # ☁️ AZURE
+    # =========================
+    def salvar_no_azure(df):
+        try:
+            conn = pyodbc.connect(
+                "DRIVER={ODBC Driver 17 for SQL Server};"
+                "SERVER=movitech-db-server.database.windows.net;"
+                "DATABASE=movitech_db;"
+                "UID=adminmovitech;"
+                "PWD=P@ralcool2"
+            )
+
+            cursor = conn.cursor()
+
+            for _, row in df.iterrows():
+                cursor.execute("""
+                    INSERT INTO producao 
+                    (dia, data, produto, id_produto, lote, etapa, usuario)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                row["Dia"], row["Data"], row["Produto"],
+                row["ID_Produto"], row["Lote"], row["Etapa"],
+                st.session_state.usuario
+                )
+
+            conn.commit()
+            conn.close()
+
+            st.success("☁️ Dados enviados para Azure!")
+
+        except Exception as e:
+            st.error(f"Erro Azure: {e}")
+
+    # =========================
+    # 📊 VARIÁVEIS
+    # =========================
+    if "dados" not in st.session_state:
+        st.session_state.dados = pd.DataFrame(columns=[
+            "Dia", "Data", "Produto", "ID_Produto", "Lote", "Etapa", "Usuario"
+        ])
+
+    if "lote" not in st.session_state:
+        st.session_state.lote = 1
+
+    # =========================
+    # 🏭 ETAPAS
+    # =========================
+    ETAPAS = [
+        "Recebimento",
+        "Almoxarifado",
+        "Dobradeira",
+        "Tornearia",
+        "Montagem Mecânica",
+        "Montagem Elétrica",
+        "Testes",
+        "Expedição"
+    ]
+
+    st.markdown("---")
+
+    # =========================
+    # 📅 PLANEJAMENTO PPCP
+    # =========================
+    st.subheader("📅 Planejamento da Produção")
+
+    data_inicio = st.date_input("Selecione a data de início")
+
+    if st.button("🚀 Gerar Produção Mensal (PPCP)"):
+
+        novos_dados = []
+
+        dias_uteis = []
+        data_atual = data_inicio
+
+        while len(dias_uteis) < 20:
+            if data_atual.weekday() < 5:
+                dias_uteis.append(data_atual)
+            data_atual += timedelta(days=1)
+
+        for i in range(10):
+
+            produto = "MoviTech X1 v2.0"
+            id_produto = "MTX1-V2"
+            lote = f"Lote-{st.session_state.lote:04d}"
+
+            semana1 = dias_uteis[0:5]
+            semana2 = dias_uteis[5:10]
+            semana3 = dias_uteis[10:15]
+            semana4 = dias_uteis[15:20]
+
+            dia = random.choice(semana1)
+            for etapa in ["Recebimento", "Almoxarifado"]:
+                novos_dados.append([dia.day, dia.strftime("%Y-%m-%d"), produto, id_produto, lote, etapa, st.session_state.usuario])
+
+            dia = random.choice(semana2)
+            novos_dados.append([dia.day, dia.strftime("%Y-%m-%d"), produto, id_produto, lote, "Dobradeira", st.session_state.usuario])
+
+            dia = random.choice(semana3)
+            novos_dados.append([dia.day, dia.strftime("%Y-%m-%d"), produto, id_produto, lote, "Tornearia", st.session_state.usuario])
+
+            dia = random.choice(semana4)
+            for etapa in ["Montagem Mecânica","Montagem Elétrica","Testes","Expedição"]:
+                novos_dados.append([dia.day, dia.strftime("%Y-%m-%d"), produto, id_produto, lote, etapa, st.session_state.usuario])
+
+            st.session_state.lote += 1
+
+        df_novo = pd.DataFrame(novos_dados, columns=[
+            "Dia", "Data", "Produto", "ID_Produto", "Lote", "Etapa", "Usuario"
+        ])
+
+        salvar_no_azure(df_novo)
+
+        st.session_state.dados = pd.concat([st.session_state.dados, df_novo], ignore_index=True)
+
+        st.success("✅ Produção mensal gerada com usuário rastreado")
+
+    df = st.session_state.dados
+
+    # =========================
+    # 📊 DASHBOARD
+    # =========================
+    if not df.empty:
+
+        st.markdown("---")
+        st.subheader("📊 Indicadores")
+
+        col1, col2 = st.columns(2)
+
+        col1.metric("Total Registros", len(df))
+        col2.metric("Robôs Produzidos", df["Lote"].nunique())
+
+        st.markdown("---")
+
+        st.subheader("🏭 Fluxo por Etapa")
+        st.bar_chart(df["Etapa"].value_counts())
+
+        st.subheader("📈 Produção por Dia")
+        st.bar_chart(df.groupby("Dia")["Lote"].nunique())
+
+        st.subheader("👤 Produção por Usuário")
+        st.bar_chart(df["Usuario"].value_counts())
+
+        st.subheader("📋 Dados Detalhados")
+        st.dataframe(df, use_container_width=True)
+
+    if st.button("Sair"):
+        st.session_state.logado = False
         st.rerun()
 
-if st.session_state.usuario is None:
+
+# =========================
+# 🔁 CONTROLE FINAL
+# =========================
+if st.session_state.logado:
+    app()
+else:
     tela_login()
-    st.stop()
-
-st.success(f"Usuário logado: {st.session_state.usuario}")
-
-# FORM
-st.title("Controle de Produção")
-
-produto = st.text_input("Produto")
-id_produto = st.text_input("ID Produto")
-lote = st.text_input("Lote")
-
-etapas = [
-    "Recebimento",
-    "Almoxarifado",
-    "Dobradeira",
-    "Tornearia",
-    "Montagem Mecânica",
-    "Montagem Elétrica",
-    "Testes",
-    "Expedição"
-]
-
-etapa = st.selectbox("Etapa", etapas)
-
-if st.button("Registrar Produção"):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    hoje = date.today()
-
-    cursor.execute("""
-        INSERT INTO producao (dia, data, produto, id_produto, lote, etapa, usuario)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, hoje.day, hoje, produto, id_produto, lote, etapa, st.session_state.usuario)
-
-    conn.commit()
-    conn.close()
-
-    st.success("Produção registrada com sucesso!")
-
-# VISUAL
-st.subheader("Produções registradas")
-
-if st.button("Atualizar dados"):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM producao")
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    st.write(rows)

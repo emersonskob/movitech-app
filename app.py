@@ -95,7 +95,7 @@ def salvar_no_aws(df):
             host="movitech-db.cj64e86mcmek.us-east-2.rds.amazonaws.com",
             database="postgres",
             user="postgres",
-            password="SUA_SENHA_AQUI",
+            password="Paralcool2",
             port=5432
         )
 

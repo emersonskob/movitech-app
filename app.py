@@ -16,7 +16,7 @@ usuarios = {
 }
 
 if "logado" not in st.session_state:
-st.session_state.logado = False
+    st.session_state.logado = False
 
 def tela_login():
 import os
